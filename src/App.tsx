@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from './store/gameStore';
 import ResourceBar from './components/UI/ResourceBar';
 import NavBar from './components/UI/NavBar';
@@ -8,8 +8,10 @@ import CollectionView from './components/Collection/CollectionView';
 import BattleView from './components/Battle/BattleView';
 import BreedingView from './components/Breeding/BreedingView';
 import ShopView from './components/Shop/ShopView';
+import LoadingScreen from './components/UI/LoadingScreen';
 
 export default function App() {
+  const [isLoading, setIsLoading] = useState(true);
   const activeView = useGameStore(s => s.activeView);
   const gameTick = useGameStore(s => s.gameTick);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -27,6 +29,10 @@ export default function App() {
       if (tickRef.current) clearInterval(tickRef.current);
     };
   }, [gameTick]);
+
+  if (isLoading) {
+    return <LoadingScreen onComplete={() => setIsLoading(false)} />;
+  }
 
   return (
     <div className="flex flex-col h-full max-w-sm mx-auto bg-game-bg">
