@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { SPECIES_MAP, TYPE_COLORS, TYPE_ICONS, RARITY_COLORS } from '../../data/petSpecies';
+import PetSprite from '../UI/PetSprite';
 
 interface Props { petId: string; }
 
@@ -59,13 +60,6 @@ export default function PetDetailView({ petId }: Props) {
   const isInTeam = activeTeam.includes(petId);
   const xpPct = Math.round((pet.xp / pet.xpToNext) * 100);
 
-  const STAGE_EMOJIS: Record<string, string> = {
-    baby: species.emojis.baby,
-    teen: species.emojis.teen,
-    adult: species.emojis.adult,
-    elder: species.emojis.elder,
-  };
-
   return (
     <div className="flex-1 overflow-y-auto">
       {/* Header */}
@@ -104,7 +98,9 @@ export default function PetDetailView({ petId }: Props) {
       {/* Pet display */}
       <div className="mx-4 mb-4">
         <div className={`bg-game-card border-2 rounded-2xl p-6 flex flex-col items-center ${RARITY_COLORS[species.rarity]}`}>
-          <span className="text-8xl mb-2 animate-float inline-block">{STAGE_EMOJIS[pet.stage] ?? '🥚'}</span>
+          <div className="mb-2">
+            <PetSprite speciesId={pet.speciesId} stage={pet.stage} size={130} state="idle" />
+          </div>
           <div className="flex items-center gap-2 flex-wrap justify-center">
             <span className={`text-xs px-2 py-0.5 rounded-full ${TYPE_COLORS[species.type]}`}>
               {TYPE_ICONS[species.type]} {species.type}
