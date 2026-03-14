@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { SPECIES_MAP, TYPE_COLORS, TYPE_ICONS } from '../../data/petSpecies';
 import { Pet } from '../../types';
+import PetSprite from '../UI/PetSprite';
 
 function msToTime(ms: number): string {
   if (ms <= 0) return 'Ready!';
@@ -27,7 +28,7 @@ function PetPickerCard({ pet, selected, onSelect, disabled }: {
         'border-game-border bg-game-card hover:border-violet-400'
       }`}
     >
-      <span className="text-2xl">{species?.emojis[pet.stage] ?? '❓'}</span>
+      <PetSprite speciesId={pet.speciesId} stage={pet.stage} size={40} state="idle" />
       <div className="flex-1 text-left min-w-0">
         <div className="text-xs font-bold text-white truncate">{pet.nickname}</div>
         <div className="flex items-center gap-1">
@@ -117,9 +118,9 @@ export default function BreedingView() {
               return (
                 <div key={task.id} className={`bg-game-card border rounded-xl p-3 ${isReady ? 'border-green-500/50' : 'border-game-border'}`}>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-2xl">{p1Species?.emojis[parent1?.stage ?? 'adult'] ?? '❓'}</span>
+                    {parent1 && <PetSprite speciesId={parent1.speciesId} stage={parent1.stage} size={40} state="idle" />}
                     <span className="text-gray-400">+</span>
-                    <span className="text-2xl">{p2Species?.emojis[parent2?.stage ?? 'adult'] ?? '❓'}</span>
+                    {parent2 && <PetSprite speciesId={parent2.speciesId} stage={parent2.stage} size={40} state="idle" />}
                     <div className="flex-1 text-right">
                       <div className={`text-xs font-bold ${isReady ? 'text-green-400' : 'text-gray-300'}`}>
                         {isReady ? '✅ Ready!' : msToTime(remaining)}
@@ -164,27 +165,33 @@ export default function BreedingView() {
       <div className="mb-4">
         <h3 className="text-sm font-bold text-gray-300 mb-2">Select a Pair</h3>
         <div className="flex gap-3 mb-3">
-          <div className={`flex-1 aspect-square max-h-24 flex flex-col items-center justify-center rounded-xl border-2 ${pet1Id ? 'border-violet-500 bg-violet-900/20' : 'border-dashed border-gray-600'}`}>
-            {pet1Id ? (
-              <>
-                <span className="text-3xl">{SPECIES_MAP[pets.find(p=>p.id===pet1Id)?.speciesId??'']?.emojis[pets.find(p=>p.id===pet1Id)?.stage??'adult']??'❓'}</span>
-                <span className="text-[10px] text-gray-400 mt-1">{pets.find(p=>p.id===pet1Id)?.nickname}</span>
-              </>
-            ) : (
-              <span className="text-gray-600 text-3xl">❓</span>
-            )}
-          </div>
-          <div className="flex items-center text-2xl text-pink-400">💕</div>
-          <div className={`flex-1 aspect-square max-h-24 flex flex-col items-center justify-center rounded-xl border-2 ${pet2Id ? 'border-violet-500 bg-violet-900/20' : 'border-dashed border-gray-600'}`}>
-            {pet2Id ? (
-              <>
-                <span className="text-3xl">{SPECIES_MAP[pets.find(p=>p.id===pet2Id)?.speciesId??'']?.emojis[pets.find(p=>p.id===pet2Id)?.stage??'adult']??'❓'}</span>
-                <span className="text-[10px] text-gray-400 mt-1">{pets.find(p=>p.id===pet2Id)?.nickname}</span>
-              </>
-            ) : (
-              <span className="text-gray-600 text-3xl">❓</span>
-            )}
-          </div>
+          {(() => {
+            const p1 = pets.find(p => p.id === pet1Id);
+            const p2 = pets.find(p => p.id === pet2Id);
+            return <>
+              <div className={`flex-1 aspect-square max-h-24 flex flex-col items-center justify-center rounded-xl border-2 ${pet1Id ? 'border-violet-500 bg-violet-900/20' : 'border-dashed border-gray-600'}`}>
+                {p1 ? (
+                  <>
+                    <PetSprite speciesId={p1.speciesId} stage={p1.stage} size={56} state="idle" />
+                    <span className="text-[10px] text-gray-400 mt-0.5">{p1.nickname}</span>
+                  </>
+                ) : (
+                  <span className="text-gray-600 text-3xl">❓</span>
+                )}
+              </div>
+              <div className="flex items-center text-2xl text-pink-400">💕</div>
+              <div className={`flex-1 aspect-square max-h-24 flex flex-col items-center justify-center rounded-xl border-2 ${pet2Id ? 'border-violet-500 bg-violet-900/20' : 'border-dashed border-gray-600'}`}>
+                {p2 ? (
+                  <>
+                    <PetSprite speciesId={p2.speciesId} stage={p2.stage} size={56} state="idle" />
+                    <span className="text-[10px] text-gray-400 mt-0.5">{p2.nickname}</span>
+                  </>
+                ) : (
+                  <span className="text-gray-600 text-3xl">❓</span>
+                )}
+              </div>
+            </>;
+          })()}
         </div>
 
         <button

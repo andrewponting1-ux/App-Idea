@@ -1,5 +1,6 @@
 import { useGameStore } from '../../store/gameStore';
 import { SPECIES_MAP, TYPE_COLORS, TYPE_ICONS } from '../../data/petSpecies';
+import PetSprite from '../UI/PetSprite';
 
 export default function BattleView() {
   const battle = useGameStore(s => s.battle);
@@ -74,7 +75,7 @@ export default function BattleView() {
                   const species = SPECIES_MAP[pet.speciesId];
                   return (
                     <div key={pet.id} className="bg-game-card border border-game-border rounded-xl p-3 flex items-center gap-3">
-                      <span className="text-3xl">{species?.emojis[pet.stage] ?? '❓'}</span>
+                      <PetSprite speciesId={pet.speciesId} stage={pet.stage} size={52} state="idle" />
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-bold text-white">{pet.nickname}</span>
@@ -147,7 +148,13 @@ export default function BattleView() {
               )}
             </div>
           </div>
-          <span className="text-5xl">{enemySpecies?.emojis[currentEnemy?.stage ?? 'adult'] ?? '❓'}</span>
+          <PetSprite
+            speciesId={currentEnemy?.speciesId ?? ''}
+            stage={currentEnemy?.stage ?? 'adult'}
+            size={88}
+            state={battle.turn === 'enemy' && !battle.result ? 'attack' : 'idle'}
+            flip={true}
+          />
         </div>
         <div className="h-3 bg-black/50 rounded-full overflow-hidden">
           <div
@@ -161,7 +168,12 @@ export default function BattleView() {
       {/* Player side */}
       <div className="bg-game-card border border-green-500/20 rounded-xl p-4 mb-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-5xl">{playerSpecies?.emojis[currentPlayerPet?.stage ?? 'adult'] ?? '❓'}</span>
+          <PetSprite
+            speciesId={currentPlayerPet?.speciesId ?? ''}
+            stage={currentPlayerPet?.stage ?? 'adult'}
+            size={88}
+            state={battle.turn === 'player' && !battle.result ? 'idle' : battle.result === 'win' ? 'victory' : 'idle'}
+          />
           <div className="text-right">
             <span className="text-sm font-bold text-green-300">{currentPlayerPet?.nickname ?? '???'}</span>
             <div className="text-xs text-gray-400">

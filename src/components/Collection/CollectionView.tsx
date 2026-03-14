@@ -3,6 +3,7 @@ import { useGameStore } from '../../store/gameStore';
 import { Pet } from '../../types';
 import { SPECIES_MAP, TYPE_COLORS, TYPE_ICONS, RARITY_COLORS, PET_SPECIES } from '../../data/petSpecies';
 import PetDetailView from '../PetCare/PetDetailView';
+import PetSprite from '../UI/PetSprite';
 
 function NeedsBar({ value, color }: { value: number; color: string }) {
   return (
@@ -15,18 +16,17 @@ function NeedsBar({ value, color }: { value: number; color: string }) {
 function PetCard({ pet, onSelect }: { pet: Pet; onSelect: () => void }) {
   const species = SPECIES_MAP[pet.speciesId];
   const isLow = pet.needs.hunger < 25 || pet.needs.happiness < 25;
-  const skinEmoji = species?.emojis[pet.stage] ?? '❓';
 
   return (
     <button
       onClick={onSelect}
-      className={`bg-game-card border rounded-xl p-3 flex flex-col items-center gap-2 transition-all active:scale-95 ${
+      className={`bg-game-card border rounded-xl p-2 flex flex-col items-center gap-1.5 transition-all active:scale-95 ${
         RARITY_COLORS[species?.rarity ?? 'common']
       } ${isLow ? 'shadow-red-500/20 shadow-lg' : ''}`}
     >
-      {/* Pet emoji with stage indicator */}
-      <div className="relative">
-        <span className="text-4xl block leading-none">{skinEmoji}</span>
+      {/* Pet sprite with indicators */}
+      <div className="relative flex items-center justify-center" style={{ width: 64, height: 64 }}>
+        <PetSprite speciesId={pet.speciesId} stage={pet.stage} size={64} state="idle" />
         {pet.isInTeam && (
           <span className="absolute -top-1 -right-1 text-xs">⚔️</span>
         )}
@@ -62,10 +62,15 @@ function PokedexEntry({ speciesId, discovered }: { speciesId: string; discovered
   const species = SPECIES_MAP[speciesId];
   if (!species) return null;
   return (
-    <div className={`bg-game-card border rounded-xl p-3 flex flex-col items-center gap-1.5 transition-all ${
+    <div className={`bg-game-card border rounded-xl p-2 flex flex-col items-center gap-1 transition-all ${
       discovered ? RARITY_COLORS[species.rarity] : 'border-gray-700/40 opacity-40'
     }`}>
-      <span className="text-3xl">{discovered ? species.emojis.adult : '❓'}</span>
+      <div className="flex items-center justify-center" style={{ width: 60, height: 60, filter: discovered ? 'none' : 'grayscale(1) brightness(0.3)' }}>
+        {discovered
+          ? <PetSprite speciesId={speciesId} stage="adult" size={60} state="idle" />
+          : <span className="text-3xl">❓</span>
+        }
+      </div>
       <div className="text-[10px] font-bold text-white text-center">{discovered ? species.name : '???'}</div>
       {discovered && (
         <span className={`text-[9px] px-1 rounded ${TYPE_COLORS[species.type]}`}>
