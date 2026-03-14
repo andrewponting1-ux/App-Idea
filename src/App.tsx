@@ -35,7 +35,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex flex-col h-full max-w-sm mx-auto bg-game-bg">
+    <div className="flex flex-col h-full w-full bg-game-bg">
       <ResourceBar />
       <Notifications />
       {/* relative wrapper gives NavBar its absolute positioning context */}

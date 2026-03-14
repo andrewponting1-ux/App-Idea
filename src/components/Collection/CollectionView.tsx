@@ -66,7 +66,7 @@ function PetCard({ pet, onSelect }: { pet: Pet; onSelect: () => void }) {
           {pet.level}
         </div>
 
-        <PetSprite speciesId={pet.speciesId} stage={pet.stage} size={80} state="idle" />
+        <PetSprite speciesId={pet.speciesId} stage={pet.stage} variant={pet.evolutionVariant} size={80} state="idle" />
 
         {pet.isInTeam && (
           <span className="absolute -top-1 -right-1 text-xs">⚔️</span>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { EvolutionVariant } from '../../types';
 
 export type SpriteState = 'idle' | 'attack' | 'hurt' | 'victory';
 
@@ -9,6 +10,35 @@ interface PetSpriteProps {
   state?: SpriteState;
   flip?: boolean;
   className?: string;
+  variant?: EvolutionVariant;
+}
+
+const VARIANT_FILTER: Record<EvolutionVariant, string> = {
+  stellar: 'brightness(1.18) saturate(1.4) drop-shadow(0 0 7px rgba(255,210,40,0.65))',
+  normal:  'drop-shadow(0 2px 4px rgba(0,0,0,0.5))',
+  feral:   'brightness(0.76) saturate(0.5) hue-rotate(-15deg) drop-shadow(0 2px 4px rgba(0,0,0,0.5))',
+};
+
+function StellarOverlay() {
+  return (
+    <>
+      <ellipse cx="50" cy="12" rx="20" ry="5" fill="rgba(255,215,0,0.28)" />
+      <text x="16" y="22" fontSize="10" fill="#FFD700" opacity="0.9">★</text>
+      <text x="73" y="19" fontSize="9"  fill="#FFD700" opacity="0.85">★</text>
+      <text x="10" y="62" fontSize="8"  fill="#FFD700" opacity="0.7">✦</text>
+      <text x="79" y="64" fontSize="8"  fill="#FFD700" opacity="0.7">✦</text>
+    </>
+  );
+}
+
+function FeralOverlay() {
+  return (
+    <>
+      <line x1="36" y1="31" x2="44" y2="42" stroke="#8B0000" strokeWidth="2" opacity="0.75" strokeLinecap="round" />
+      <line x1="44" y1="31" x2="36" y2="42" stroke="#8B0000" strokeWidth="2" opacity="0.75" strokeLinecap="round" />
+      <line x1="56" y1="33" x2="62" y2="41" stroke="#6B0000" strokeWidth="1.4" opacity="0.6" strokeLinecap="round" />
+    </>
+  );
 }
 
 function Shadow() {
@@ -560,11 +590,13 @@ export default function PetSprite({
   state = 'idle',
   flip = false,
   className = '',
+  variant,
 }: PetSpriteProps) {
   const isEgg = stage === 'egg';
   const spriteContent = isEgg ? <EggSprite /> : (SPRITE_MAP[speciesId] ?? <EggSprite />);
   const stageScale = STAGE_SCALE[stage] ?? 1.0;
   const effectiveSize = Math.round(size * stageScale);
+  const svgFilter = variant ? VARIANT_FILTER[variant] : VARIANT_FILTER.normal;
 
   return (
     <div
@@ -581,9 +613,11 @@ export default function PetSprite({
         width={effectiveSize}
         height={effectiveSize}
         xmlns="http://www.w3.org/2000/svg"
-        style={{ overflow: 'visible', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}
+        style={{ overflow: 'visible', filter: svgFilter }}
       >
         {spriteContent}
+        {variant === 'stellar' && <StellarOverlay />}
+        {variant === 'feral'   && <FeralOverlay />}
       </svg>
     </div>
   );

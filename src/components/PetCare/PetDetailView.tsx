@@ -99,7 +99,7 @@ export default function PetDetailView({ petId }: Props) {
       <div className="mx-4 mb-4">
         <div className={`bg-game-card border-2 rounded-2xl p-6 flex flex-col items-center ${RARITY_COLORS[species.rarity]}`}>
           <div className="mb-2">
-            <PetSprite speciesId={pet.speciesId} stage={pet.stage} size={130} state="idle" />
+            <PetSprite speciesId={pet.speciesId} stage={pet.stage} variant={pet.evolutionVariant} size={130} state="idle" />
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-center">
             <span className={`text-xs px-2 py-0.5 rounded-full ${TYPE_COLORS[species.type]}`}>

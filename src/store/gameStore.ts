@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import {
   Pet, BasePlot, PlacedBuilding, BreedingTask, BattleState,
-  ActiveView, BuildingType, BattleEnemy, EvolutionStage,
+  ActiveView, BuildingType, BattleEnemy, EvolutionStage, EvolutionVariant,
 } from '../types';
 import { PET_SPECIES, SPECIES_MAP, getTypeAdvantage, getStageForLevel } from '../data/petSpecies';
 import { BUILDING_DEFS } from '../data/buildingData';
@@ -39,6 +39,8 @@ function createPet(speciesId: string, level = 1): Pet {
       speed: Math.round(species.baseStats.speed * mult),
     },
     needs: { hunger: 80, happiness: 80, energy: 90 },
+    evolutionVariant: 'normal' as EvolutionVariant,
+    careScore: 80,
     isInTeam: false,
     isBreeding: false,
     acquiredAt: Date.now(),
@@ -247,8 +249,14 @@ export const useGameStore = create<GameStore>()(
           const newEnergy = Math.max(0, pet.needs.energy - energyDecay);
           // Starving reduces HP
           const hpLoss = newHunger === 0 ? 1 : 0;
+          // Rolling care score: slowly drifts toward current needs quality (~10 min to fully shift)
+          const needsQuality = (newHunger + newHappy) / 2;
+          const newCareScore = Math.min(100, Math.max(0,
+            (pet.careScore ?? 80) * 0.9985 + needsQuality * 0.0015
+          ));
           return {
             ...pet,
+            careScore: newCareScore,
             needs: { hunger: newHunger, happiness: newHappy, energy: newEnergy },
             stats: {
               ...pet.stats,
@@ -313,6 +321,9 @@ export const useGameStore = create<GameStore>()(
             xpToNext: levelUp ? calcXpToNext(newLevel) : p.xpToNext,
             level: newLevel,
             stage: newStage,
+            evolutionVariant: evolved && newStage !== 'egg'
+              ? ((p.careScore ?? 80) >= 72 ? 'stellar' : (p.careScore ?? 80) >= 38 ? 'normal' : 'feral') as EvolutionVariant
+              : p.evolutionVariant,
             stats: evolved ? {
               ...p.stats,
               maxHp: Math.round(SPECIES_MAP[p.speciesId].baseStats.hp * (1 + (newLevel - 1) * 0.1)),
@@ -323,7 +334,12 @@ export const useGameStore = create<GameStore>()(
             } : p.stats,
           } : p),
         }));
-        if (evolved) get().addNotification(`${pet.nickname} evolved into ${newStage}! 🎉`, 'success');
+        if (evolved) {
+          const variant = pet.careScore !== undefined
+            ? (pet.careScore >= 72 ? '⭐ Stellar' : pet.careScore >= 38 ? '' : '💢 Feral')
+            : '';
+          get().addNotification(`${pet.nickname} evolved into ${variant ? variant + ' ' : ''}${newStage}! 🎉`, 'success');
+        }
         if (levelUp && !evolved) get().addNotification(`${pet.nickname} leveled up to ${newLevel}!`, 'success');
       },
 
@@ -337,6 +353,7 @@ export const useGameStore = create<GameStore>()(
         const levelUp = newXp >= pet.xpToNext;
         const newLevel = levelUp ? pet.level + 1 : pet.level;
         const newStage = getStageForLevel(newLevel) as EvolutionStage;
+        const evolved = newStage !== pet.stage;
 
         set(s => ({
           gold: s.gold + 5,
@@ -351,9 +368,13 @@ export const useGameStore = create<GameStore>()(
             xpToNext: levelUp ? calcXpToNext(newLevel) : p.xpToNext,
             level: newLevel,
             stage: newStage,
+            evolutionVariant: evolved && newStage !== 'egg'
+              ? ((p.careScore ?? 80) >= 72 ? 'stellar' : (p.careScore ?? 80) >= 38 ? 'normal' : 'feral') as EvolutionVariant
+              : p.evolutionVariant,
           } : p),
         }));
-        if (levelUp) get().addNotification(`${pet.nickname} leveled up to ${newLevel}! 🎉`, 'success');
+        if (levelUp && !evolved) get().addNotification(`${pet.nickname} leveled up to ${newLevel}! 🎉`, 'success');
+        if (evolved) get().addNotification(`${pet.nickname} evolved into ${newStage}! 🎉`, 'success');
       },
 
       restPet(petId) {

@@ -101,7 +101,7 @@ export default function BattleView() {
                         border: '2px solid #6b4f1a',
                       }}
                     >
-                      <PetSprite speciesId={pet.speciesId} stage={pet.stage} size={52} state="idle" />
+                      <PetSprite speciesId={pet.speciesId} stage={pet.stage} variant={pet.evolutionVariant} size={52} state="idle" />
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-bold text-white">{pet.nickname}</span>
@@ -221,6 +221,7 @@ export default function BattleView() {
             <PetSprite
               speciesId={currentPlayerPet?.speciesId ?? ''}
               stage={currentPlayerPet?.stage ?? 'adult'}
+              variant={currentPlayerPet?.evolutionVariant}
               size={110}
               state={battle.result === 'win' ? 'victory' : 'idle'}
             />

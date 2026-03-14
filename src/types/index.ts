@@ -3,6 +3,7 @@ export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 export type EvolutionStage = 'egg' | 'baby' | 'teen' | 'adult' | 'elder';
 export type BuildingType = 'nest' | 'garden' | 'arena' | 'breeding_den' | 'gem_mine' | 'lab';
 export type ActiveView = 'base' | 'collection' | 'battle' | 'breeding' | 'shop';
+export type EvolutionVariant = 'stellar' | 'normal' | 'feral';
 
 export interface PetSpecies {
   id: string;
@@ -42,6 +43,8 @@ export interface Pet {
     energy: number;
   };
   skinId?: string;
+  evolutionVariant?: EvolutionVariant;
+  careScore?: number;
   isInTeam: boolean;
   isBreeding: boolean;
   acquiredAt: number;
