@@ -12,39 +12,115 @@
     height: 100%;
     margin: 0;
     padding: 0;
-    background-color: #0f0a1e;
+    background-color: #100d05;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow: hidden;
   }
 
-  /* Custom scrollbar */
-  ::-webkit-scrollbar {
-    width: 3px;
-    height: 3px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: #2d1f5e;
-    border-radius: 999px;
-  }
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #6b4f1a; border-radius: 999px; }
 }
 
 @layer utilities {
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-  .safe-bottom {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
 }
 
-/* ── Sprite animations ────────────────────────────── */
+/* ── CoC-style panels ──────────────────────────────── */
+.panel-coc {
+  background: linear-gradient(to bottom, #2a1e0c, #1a1208);
+  border: 2px solid #6b4f1a;
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 rgba(200,150,60,0.18), 0 2px 10px rgba(0,0,0,0.6);
+}
+
+/* ── CoC-style 3D buttons ──────────────────────────── */
+.btn-coc {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(to bottom, #e8a030, #b06010);
+  border: 2px solid #8a4a00;
+  border-bottom-width: 4px;
+  border-radius: 10px;
+  box-shadow: 0 4px 0 #6a3000, inset 0 1px 0 rgba(255,220,100,0.4);
+  color: white;
+  font-weight: 800;
+  text-shadow: 0 -1px 0 rgba(0,0,0,0.5);
+  transition: transform 0.08s, box-shadow 0.08s;
+  cursor: pointer;
+}
+.btn-coc:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #6a3000, inset 0 1px 0 rgba(255,220,100,0.4);
+}
+.btn-coc:disabled {
+  background: linear-gradient(to bottom, #5a5040, #3a3028);
+  border-color: #3a2a10;
+  box-shadow: 0 3px 0 #1a1208;
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-coc-red {
+  background: linear-gradient(to bottom, #e84040, #a01818);
+  border-color: #801010;
+  box-shadow: 0 4px 0 #600808, inset 0 1px 0 rgba(255,160,160,0.3);
+}
+.btn-coc-red:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #600808, inset 0 1px 0 rgba(255,160,160,0.3);
+}
+
+.btn-coc-blue {
+  background: linear-gradient(to bottom, #4a90e2, #2060b0);
+  border-color: #1a4a90;
+  box-shadow: 0 4px 0 #0e3070, inset 0 1px 0 rgba(150,200,255,0.3);
+}
+.btn-coc-blue:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #0e3070, inset 0 1px 0 rgba(150,200,255,0.3);
+}
+
+.btn-coc-green {
+  background: linear-gradient(to bottom, #40c840, #189018);
+  border-color: #107010;
+  box-shadow: 0 4px 0 #085008, inset 0 1px 0 rgba(150,255,150,0.3);
+}
+.btn-coc-green:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #085008, inset 0 1px 0 rgba(150,255,150,0.3);
+}
+
+/* ── Rarity glow animations ────────────────────────── */
+@keyframes glow-legendary {
+  0%, 100% { box-shadow: 0 0 8px #f5a623, 0 0 20px rgba(245,166,35,0.4); }
+  50%       { box-shadow: 0 0 16px #f5a623, 0 0 40px rgba(245,166,35,0.6); }
+}
+@keyframes glow-epic {
+  0%, 100% { box-shadow: 0 0 8px rgba(168,85,247,0.7); }
+  50%       { box-shadow: 0 0 20px rgba(168,85,247,0.9); }
+}
+@keyframes glow-rare {
+  0%, 100% { box-shadow: 0 0 6px rgba(59,130,246,0.6); }
+  50%       { box-shadow: 0 0 16px rgba(59,130,246,0.9); }
+}
+
+.glow-legendary { animation: glow-legendary 2s ease-in-out infinite; }
+.glow-epic      { animation: glow-epic      2s ease-in-out infinite; }
+.glow-rare      { animation: glow-rare      2.5s ease-in-out infinite; }
+
+/* ── HP bar gradient fills ─────────────────────────── */
+.hp-bar-player {
+  background: linear-gradient(to right, #22c55e, #16a34a);
+}
+.hp-bar-enemy {
+  background: linear-gradient(to right, #ef4444, #b91c1c);
+}
+
+/* ── Sprite animations ─────────────────────────────── */
 @keyframes sprite-idle {
   0%, 100% { transform: translateY(0px); }
   50%       { transform: translateY(-6px); }
