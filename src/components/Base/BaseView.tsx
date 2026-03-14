@@ -1,214 +1,532 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { BUILDING_DEFS, BUILDING_ORDER } from '../../data/buildingData';
 import { BuildingType, BasePlot, PlacedBuilding } from '../../types';
+import PetSprite from '../UI/PetSprite';
+
+const COLS = 4;
+const ROWS = 3;
+
+// Building emoji display size relative to tile width
+const BLDG_EMOJI_SCALE = 0.46;
+
+interface TileMetrics {
+  w: number;
+  h: number;
+}
+
+// Pixel center of a plot tile
+function tileCenter(col: number, row: number, m: TileMetrics) {
+  return { x: col * m.w + m.w / 2, y: row * m.h + m.h / 2 };
+}
+
+// Random position within an unlocked tile (with inset so pets don't clip edges)
+function randomInTile(col: number, row: number, m: TileMetrics, inset = 0.25) {
+  return {
+    x: col * m.w + m.w * inset + Math.random() * m.w * (1 - inset * 2),
+    y: row * m.h + m.h * inset + Math.random() * m.h * (1 - inset * 2),
+    flip: Math.random() > 0.5,
+  };
+}
+
+interface PetPos { x: number; y: number; flip: boolean }
 
 export default function BaseView() {
-  const plots = useGameStore(s => s.plots);
+  const plots     = useGameStore(s => s.plots);
   const buildings = useGameStore(s => s.buildings);
-  const gold = useGameStore(s => s.gold);
-  const gems = useGameStore(s => s.gems);
-  const unlockPlot = useGameStore(s => s.unlockPlot);
-  const buildOnPlot = useGameStore(s => s.buildOnPlot);
+  const pets      = useGameStore(s => s.pets);
+  const gold      = useGameStore(s => s.gold);
+  const gems      = useGameStore(s => s.gems);
+  const unlockPlot     = useGameStore(s => s.unlockPlot);
+  const buildOnPlot    = useGameStore(s => s.buildOnPlot);
   const upgradeBuilding = useGameStore(s => s.upgradeBuilding);
+  const setSelectedPet = useGameStore(s => s.setSelectedPet);
+  const setActiveView  = useGameStore(s => s.setActiveView);
 
-  const [selectedPlot, setSelectedPlot] = useState<string | null>(null);
+  const [selectedPlotId,     setSelectedPlotId]     = useState<string | null>(null);
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
   const [buildMenu, setBuildMenu] = useState(false);
 
-  const plot = plots.find(p => p.id === selectedPlot);
-  const building = plot?.buildingId ? buildings.find(b => b.id === plot.buildingId) : null;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [metrics, setMetrics] = useState<TileMetrics>({ w: 80, h: 76 });
+
+  // Pet roaming positions (pixel, within map)
+  const [petPos, setPetPos] = useState<Record<string, PetPos>>({});
+
+  const unlockedPlots = plots.filter(p => p.unlocked);
+  const roamingPets   = pets.filter(p => !p.isBreeding && !p.isInTeam && p.stage !== 'egg');
+  const breedingPets  = pets.filter(p => p.isBreeding);
+  const teamPets      = pets.filter(p => p.isInTeam);
+  const eggPets       = pets.filter(p => p.stage === 'egg' && !p.isBreeding);
+
   const existingTypes = new Set(buildings.map(b => b.type));
+
+  // Measure container width → derive tile size
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.clientWidth / COLS;
+      setMetrics({ w, h: w * 0.88 });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const pickRoamPos = useCallback((): PetPos => {
+    if (unlockedPlots.length === 0) return { x: metrics.w / 2, y: metrics.h / 2, flip: false };
+    const p = unlockedPlots[Math.floor(Math.random() * unlockedPlots.length)];
+    return randomInTile(p.col, p.row, metrics);
+  }, [unlockedPlots, metrics]);
+
+  // Initialize positions for roaming pets
+  useEffect(() => {
+    setPetPos(prev => {
+      const next: Record<string, PetPos> = {};
+      roamingPets.forEach(p => {
+        next[p.id] = prev[p.id] ?? pickRoamPos();
+      });
+      return next;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roamingPets.length, metrics.w]);
+
+  // Move one random roaming pet every 2.5 s
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (roamingPets.length === 0) return;
+      const pet = roamingPets[Math.floor(Math.random() * roamingPets.length)];
+      setPetPos(prev => ({ ...prev, [pet.id]: pickRoamPos() }));
+    }, 2500);
+    return () => clearInterval(id);
+  }, [roamingPets, pickRoamPos]);
+
+  const mapH = metrics.h * ROWS;
+
+  // Building helpers
+  const buildingForPlot = (p: BasePlot): PlacedBuilding | undefined =>
+    p.buildingId ? buildings.find(b => b.id === p.buildingId) : undefined;
+
+  const plotForBuilding = (b: PlacedBuilding): BasePlot | undefined =>
+    plots.find(p => p.id === b.plotId);
+
+  const specialBuildingPlot = (type: string) => {
+    const bldg = buildings.find(b => b.type === type);
+    return bldg ? plotForBuilding(bldg) : undefined;
+  };
+
+  const denPlot   = specialBuildingPlot('breeding_den');
+  const arenaPlot = specialBuildingPlot('arena');
+  const nestPlot  = specialBuildingPlot('nest');
+
+  // Selected state
+  const selectedPlot     = plots.find(p => p.id === selectedPlotId);
+  const selectedBuilding = selectedBuildingId ? buildings.find(b => b.id === selectedBuildingId) : null;
+
+  const handleTileClick = (p: BasePlot) => {
+    const bldg = buildingForPlot(p);
+    if (bldg) {
+      setSelectedBuildingId(bldg.id);
+      setSelectedPlotId(null);
+      setBuildMenu(false);
+    } else {
+      setSelectedPlotId(p.id);
+      setSelectedBuildingId(null);
+      setBuildMenu(false);
+    }
+  };
+
+  const handlePetClick = (petId: string) => {
+    setSelectedPet(petId);
+    setActiveView('collection');
+  };
+
+  const dismiss = () => {
+    setSelectedPlotId(null);
+    setSelectedBuildingId(null);
+    setBuildMenu(false);
+  };
 
   return (
     <div className="flex-1 overflow-y-auto">
-      {/* World background banner */}
+
+      {/* ── Visual map ──────────────────────────────── */}
       <div
-        className="px-4 pt-4 pb-2"
-        style={{ background: 'linear-gradient(to bottom, #1a2a4a 0%, #2a3a1a 60%, #1a1208 100%)' }}
+        ref={containerRef}
+        className="relative w-full overflow-hidden select-none"
+        style={{
+          height: mapH,
+          background: 'linear-gradient(to bottom, #1a2a4a 0%, #2a4510 45%, #1a3008 100%)',
+        }}
       >
-        {/* Header */}
-        <div className="mb-3">
-          <h2
-            className="text-lg font-black"
-            style={{ color: '#f5a623', textShadow: '0 -1px 0 rgba(0,0,0,0.6)' }}
-          >
-            ⚔️ Your Kingdom
-          </h2>
-          <p className="text-xs text-gray-400">Build and upgrade structures to grow your realm.</p>
-        </div>
+        {/* ── Ground tiles ──────────────────────────── */}
+        {plots.map(p => {
+          const bldg      = buildingForPlot(p);
+          const isSelected = selectedPlotId === p.id || (bldg && selectedBuildingId === bldg.id);
+          const left  = p.col * metrics.w;
+          const top   = p.row * metrics.h;
 
-        {/* Stats row */}
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          <StatCard label="Pets" value={`${useGameStore.getState().pets.length}`} emoji="🐾" />
-          <StatCard label="Buildings" value={`${buildings.length}`} emoji="🏗️" />
-          <StatCard label="Battles Won" value={`${useGameStore.getState().battlesWon}`} emoji="🏆" />
-        </div>
+          let tileBg: string;
+          let tileBorder: string;
+          if (!p.unlocked) {
+            tileBg     = 'linear-gradient(to bottom, #1a1208, #100d05)';
+            tileBorder = '#2a1808';
+          } else if (bldg) {
+            tileBg     = 'linear-gradient(to bottom, #3a5a18, #284010)';
+            tileBorder = isSelected ? '#f5a623' : '#4a7a20';
+          } else {
+            tileBg     = 'linear-gradient(to bottom, #4a7a22, #2a5010)';
+            tileBorder = isSelected ? '#f5a623' : '#5a9a28';
+          }
 
-        {/* Plot grid */}
-        <div className="grid grid-cols-4 gap-2 mb-2">
-          {plots.map(p => (
-            <PlotTile
+          return (
+            <div
               key={p.id}
-              plot={p}
-              building={p.buildingId ? buildings.find(b => b.id === p.buildingId) : undefined}
-              isSelected={selectedPlot === p.id}
-              onSelect={() => {
-                setSelectedPlot(p.id === selectedPlot ? null : p.id);
-                setBuildMenu(false);
+              onClick={() => handleTileClick(p)}
+              className="absolute cursor-pointer transition-all duration-150 active:brightness-90"
+              style={{
+                left, top,
+                width: metrics.w,
+                height: metrics.h,
+                background: tileBg,
+                border: `1.5px solid ${tileBorder}`,
+                boxShadow: isSelected ? `inset 0 0 14px rgba(245,166,35,0.35)` : undefined,
+                opacity: !p.unlocked ? 0.6 : 1,
+                zIndex: 1,
               }}
-            />
-          ))}
-        </div>
+            >
+              {/* Subtle grass texture lines */}
+              {p.unlocked && !bldg && (
+                <div
+                  className="absolute inset-0 opacity-10 pointer-events-none"
+                  style={{
+                    backgroundImage:
+                      'repeating-linear-gradient(90deg, transparent 0px, transparent 9px, rgba(0,0,0,0.15) 9px, rgba(0,0,0,0.15) 10px)',
+                  }}
+                />
+              )}
+
+              {/* Locked: padlock + cost */}
+              {!p.unlocked && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 pointer-events-none">
+                  <span style={{ fontSize: metrics.w * 0.26, lineHeight: 1 }}>🔒</span>
+                  <span className="text-[8px] font-bold" style={{ color: '#9a7840' }}>
+                    🪙{p.unlockCost.gold}
+                  </span>
+                </div>
+              )}
+
+              {/* Empty unlocked: faint + icon */}
+              {p.unlocked && !bldg && !isSelected && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25">
+                  <span className="text-green-300 font-bold text-2xl">+</span>
+                </div>
+              )}
+              {p.unlocked && !bldg && isSelected && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <span className="text-2xl">📍</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* ── Buildings ─────────────────────────────── */}
+        {buildings.map(b => {
+          const def   = BUILDING_DEFS[b.type];
+          const plot  = plotForBuilding(b);
+          if (!plot) return null;
+          const isSelected = selectedBuildingId === b.id;
+          const cx = plot.col * metrics.w + metrics.w / 2;
+          const cy = plot.row * metrics.h + metrics.h / 2;
+          const emojiSize = metrics.w * BLDG_EMOJI_SCALE;
+
+          return (
+            <div
+              key={b.id}
+              onClick={() => { setSelectedBuildingId(b.id); setSelectedPlotId(null); setBuildMenu(false); }}
+              className="absolute flex flex-col items-center cursor-pointer active:scale-90 transition-transform"
+              style={{
+                left: cx - metrics.w * 0.42,
+                top:  cy - metrics.h * 0.52,
+                width: metrics.w * 0.84,
+                height: metrics.h * 0.96,
+                zIndex: 10,
+                justifyContent: 'flex-end',
+                paddingBottom: metrics.h * 0.06,
+              }}
+            >
+              {/* Glow ring when selected */}
+              {isSelected && (
+                <div
+                  className="absolute inset-0 rounded-full pointer-events-none"
+                  style={{ boxShadow: '0 0 18px rgba(245,166,35,0.6)', borderRadius: 8 }}
+                />
+              )}
+
+              {/* Building name when selected */}
+              {isSelected && (
+                <div
+                  className="absolute text-[9px] font-black px-2 py-0.5 rounded-full whitespace-nowrap"
+                  style={{
+                    top: -18,
+                    background: '#f5a623',
+                    color: '#1a0800',
+                    boxShadow: '0 1px 0 #8a4a00',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                  }}
+                >
+                  {def.name}
+                </div>
+              )}
+
+              {/* Drop shadow */}
+              <div
+                className="absolute pointer-events-none"
+                style={{
+                  bottom: 0,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: metrics.w * 0.6,
+                  height: 7,
+                  borderRadius: '50%',
+                  background: 'rgba(0,0,0,0.35)',
+                }}
+              />
+
+              {/* Emoji */}
+              <span style={{ fontSize: emojiSize, lineHeight: 1, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.6))' }}>
+                {def.emoji}
+              </span>
+
+              {/* Level badge */}
+              <div
+                className="text-[8px] font-black px-1.5 py-0.5 rounded-full mt-0.5"
+                style={{
+                  background: isSelected ? '#f5a623' : 'linear-gradient(to bottom, #2a1e0c, #1a1208)',
+                  border: `1px solid ${isSelected ? '#f5a623' : '#6b4f1a'}`,
+                  color: isSelected ? '#1a0800' : '#ffd166',
+                  boxShadow: isSelected ? '0 0 6px rgba(245,166,35,0.5)' : undefined,
+                }}
+              >
+                Lv{b.level}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* ── Roaming pets ──────────────────────────── */}
+        {roamingPets.map(pet => {
+          const pos = petPos[pet.id];
+          if (!pos) return null;
+          const spriteSize = Math.round(metrics.w * 0.42);
+          return (
+            <div
+              key={pet.id}
+              onClick={() => handlePetClick(pet.id)}
+              className="absolute cursor-pointer"
+              style={{
+                left: pos.x - spriteSize / 2,
+                top:  pos.y - spriteSize * 0.85,
+                zIndex: 20,
+                transition: 'left 2.5s ease-in-out, top 2.5s ease-in-out',
+              }}
+            >
+              <PetSprite
+                speciesId={pet.speciesId}
+                stage={pet.stage}
+                size={spriteSize}
+                state="idle"
+                flip={pos.flip}
+              />
+              {/* Need warning */}
+              {(pet.needs.hunger < 25 || pet.needs.happiness < 25) && (
+                <span
+                  className="absolute animate-bounce-slow"
+                  style={{ fontSize: 10, top: -8, right: -4 }}
+                >
+                  ⚠️
+                </span>
+              )}
+            </div>
+          );
+        })}
+
+        {/* ── Breeding pets: show near / in the den ─── */}
+        {denPlot && breedingPets.map((pet, i) => {
+          const spriteSize = Math.round(metrics.w * 0.32);
+          const cx = denPlot.col * metrics.w + metrics.w * (i === 0 ? 0.25 : 0.7);
+          const cy = denPlot.row * metrics.h + metrics.h * 0.62;
+          return (
+            <div
+              key={`breed_${pet.id}`}
+              onClick={() => handlePetClick(pet.id)}
+              className="absolute cursor-pointer"
+              style={{ left: cx - spriteSize / 2, top: cy - spriteSize, zIndex: 15 }}
+            >
+              <PetSprite speciesId={pet.speciesId} stage={pet.stage} size={spriteSize} state="idle" flip={i === 1} />
+              <span className="absolute text-[9px]" style={{ top: -8, right: -2 }}>💕</span>
+            </div>
+          );
+        })}
+
+        {/* ── Team pets: show near arena ─────────────── */}
+        {arenaPlot && teamPets.map((pet, i) => {
+          const spriteSize = Math.round(metrics.w * 0.30);
+          const offsets = [0.2, 0.5, 0.78];
+          const cx = arenaPlot.col * metrics.w + metrics.w * offsets[i % offsets.length];
+          const cy = arenaPlot.row * metrics.h + metrics.h * 0.65;
+          return (
+            <div
+              key={`team_${pet.id}`}
+              onClick={() => handlePetClick(pet.id)}
+              className="absolute cursor-pointer"
+              style={{ left: cx - spriteSize / 2, top: cy - spriteSize, zIndex: 15 }}
+            >
+              <PetSprite speciesId={pet.speciesId} stage={pet.stage} size={spriteSize} state="idle" flip={i % 2 === 0} />
+              <span className="absolute text-[9px]" style={{ top: -8, right: -2 }}>⚔️</span>
+            </div>
+          );
+        })}
+
+        {/* ── Egg pets: show near nest ─────────────── */}
+        {nestPlot && eggPets.slice(0, 4).map((pet, i) => {
+          const cx = nestPlot.col * metrics.w + metrics.w * (0.18 + (i % 2) * 0.42);
+          const cy = nestPlot.row * metrics.h + metrics.h * (0.55 + Math.floor(i / 2) * 0.25);
+          return (
+            <div
+              key={`egg_${pet.id}`}
+              onClick={() => handlePetClick(pet.id)}
+              className="absolute cursor-pointer animate-bounce-slow"
+              style={{ left: cx - 10, top: cy - 14, zIndex: 15 }}
+            >
+              <span style={{ fontSize: metrics.w * 0.22 }}>🥚</span>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Action Panel */}
-      <div className="px-4 pb-4 pt-3">
-        {plot && (
+      {/* ── Action panel ────────────────────────────── */}
+      <div className="px-4 pt-3 pb-4 space-y-3">
+
+        {/* Default: kingdom summary */}
+        {!selectedPlot && !selectedBuilding && (
+          <div
+            className="rounded-xl p-3 flex justify-between items-center"
+            style={{ background: 'linear-gradient(to bottom, #2a1e0c, #1a1208)', border: '2px solid #6b4f1a' }}
+          >
+            <div>
+              <h2 className="font-black text-sm" style={{ color: '#f5a623' }}>⚔️ Your Kingdom</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Tap buildings or pets to interact</p>
+            </div>
+            <div className="text-right text-xs text-gray-500">
+              <div>{buildings.length} buildings</div>
+              <div>{pets.length} pets</div>
+            </div>
+          </div>
+        )}
+
+        {/* Locked plot */}
+        {selectedPlot && !selectedPlot.unlocked && (
           <div className="panel-coc p-4">
-            {!plot.unlocked ? (
-              <>
-                <h3 className="font-bold text-white mb-1">🔒 Locked Plot</h3>
-                <p className="text-xs text-gray-400 mb-3">Spend gold to unlock this land.</p>
-                <div className="flex gap-2 text-sm mb-3">
-                  <CostBadge emoji="🪙" val={plot.unlockCost.gold} have={gold} />
-                </div>
-                <button
-                  onClick={() => unlockPlot(plot.id)}
-                  className="btn-coc w-full py-2.5 text-sm"
-                >
-                  Unlock Plot
+            <h3 className="font-bold text-white mb-1">🔒 Locked Plot</h3>
+            <p className="text-xs text-gray-400 mb-3">
+              Unlock this land to build here.
+            </p>
+            <div className="flex items-center gap-3 mb-3">
+              <CostBadge emoji="🪙" val={selectedPlot.unlockCost.gold} have={gold} />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => unlockPlot(selectedPlot.id)} className="btn-coc flex-1 py-2.5 text-sm">
+                Unlock Plot
+              </button>
+              <button onClick={dismiss} className="text-xs text-gray-500 px-3">✕</button>
+            </div>
+          </div>
+        )}
+
+        {/* Empty unlocked plot */}
+        {selectedPlot && selectedPlot.unlocked && !selectedPlot.buildingId && (
+          <div className="panel-coc p-4">
+            <h3 className="font-bold text-white mb-1">🌿 Empty Plot</h3>
+            {!buildMenu ? (
+              <div className="flex gap-2">
+                <button onClick={() => setBuildMenu(true)} className="btn-coc flex-1 py-2.5 text-sm">
+                  + Build Here
                 </button>
-              </>
-            ) : building ? (
-              <BuildingPanel building={building} gold={gold} gems={gems} onUpgrade={() => upgradeBuilding(building.id)} />
+                <button onClick={dismiss} className="text-xs text-gray-500 px-3">✕</button>
+              </div>
             ) : (
-              <>
-                <h3 className="font-bold text-white mb-1">🌿 Empty Plot</h3>
-                <p className="text-xs text-gray-400 mb-3">Choose a building to construct here.</p>
-                {!buildMenu ? (
-                  <button
-                    onClick={() => setBuildMenu(true)}
-                    className="btn-coc w-full py-2.5 text-sm"
-                  >
-                    + Build Here
-                  </button>
-                ) : (
-                  <div className="space-y-2">
-                    {BUILDING_ORDER.filter(t => !existingTypes.has(t) || t === 'nest').map(type => {
-                      const def = BUILDING_DEFS[type];
-                      const canAfford = gold >= def.baseCost.gold && gems >= def.baseCost.gems;
-                      return (
-                        <button
-                          key={type}
-                          disabled={!canAfford}
-                          onClick={() => { buildOnPlot(plot.id, type as BuildingType); setBuildMenu(false); setSelectedPlot(null); }}
-                          className={`w-full flex items-center gap-3 p-2.5 rounded-xl border-2 text-left transition ${
-                            canAfford
-                              ? 'border-[#6b4f1a] hover:border-[#f5a623]'
-                              : 'border-[#3a2a10] opacity-50 cursor-not-allowed'
-                          }`}
-                          style={{ background: canAfford ? 'linear-gradient(to bottom, #2e2010, #1e1508)' : 'rgba(0,0,0,0.2)' }}
-                        >
-                          <span className="text-2xl">{def.emoji}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-bold text-white">{def.name}</div>
-                            <div className="text-[10px] text-gray-400">{def.effect}</div>
-                            <div className="flex gap-2 mt-0.5">
-                              {def.baseCost.gold > 0 && <CostBadge emoji="🪙" val={def.baseCost.gold} have={gold} />}
-                              {def.baseCost.gems > 0 && <CostBadge emoji="💎" val={def.baseCost.gems} have={gems} />}
-                              {def.baseCost.gold === 0 && def.baseCost.gems === 0 && (
-                                <span className="text-[10px] text-green-400">Free</span>
-                              )}
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
+              <div className="space-y-2">
+                {BUILDING_ORDER.filter(t => !existingTypes.has(t) || t === 'nest').map(type => {
+                  const def = BUILDING_DEFS[type];
+                  const canAfford = gold >= def.baseCost.gold && gems >= def.baseCost.gems;
+                  return (
                     <button
-                      onClick={() => setBuildMenu(false)}
-                      className="w-full text-xs text-gray-500 py-1"
+                      key={type}
+                      disabled={!canAfford}
+                      onClick={() => {
+                        buildOnPlot(selectedPlot.id, type as BuildingType);
+                        setBuildMenu(false);
+                        dismiss();
+                      }}
+                      className="w-full flex items-center gap-3 p-2.5 rounded-xl border-2 text-left transition active:scale-95"
+                      style={{
+                        background: canAfford ? 'linear-gradient(to bottom, #2e2010, #1e1508)' : 'rgba(0,0,0,0.15)',
+                        borderColor: canAfford ? '#6b4f1a' : '#2a1808',
+                        opacity: canAfford ? 1 : 0.5,
+                        cursor: canAfford ? 'pointer' : 'not-allowed',
+                      }}
                     >
-                      Cancel
+                      <span className="text-2xl">{def.emoji}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-bold text-white">{def.name}</div>
+                        <div className="text-[10px] text-gray-400">{def.effect}</div>
+                        <div className="flex gap-2 mt-0.5 flex-wrap">
+                          {def.baseCost.gold > 0 && <CostBadge emoji="🪙" val={def.baseCost.gold} have={gold} />}
+                          {def.baseCost.gems > 0 && <CostBadge emoji="💎" val={def.baseCost.gems} have={gems} />}
+                          {def.baseCost.gold === 0 && def.baseCost.gems === 0 && (
+                            <span className="text-[10px] text-green-400">Free</span>
+                          )}
+                        </div>
+                      </div>
                     </button>
-                  </div>
-                )}
-              </>
+                  );
+                })}
+                <button onClick={() => setBuildMenu(false)} className="w-full text-xs text-gray-500 py-1">Cancel</button>
+              </div>
             )}
           </div>
+        )}
+
+        {/* Building info / upgrade */}
+        {selectedBuilding && (
+          <BuildingPanel
+            building={selectedBuilding}
+            gold={gold}
+            gems={gems}
+            onUpgrade={() => upgradeBuilding(selectedBuilding.id)}
+            onClose={dismiss}
+          />
         )}
       </div>
     </div>
   );
 }
 
-function PlotTile({ plot, building, isSelected, onSelect }: {
-  plot: BasePlot;
-  building?: PlacedBuilding;
-  isSelected: boolean;
-  onSelect: () => void;
-}) {
-  const def = building ? BUILDING_DEFS[building.type] : null;
+// ── Sub-components ──────────────────────────────────────
 
-  let bg = '';
-  let border = '';
-  let shadow = '';
-
-  if (!plot.unlocked) {
-    bg = 'linear-gradient(to bottom, #2a2010, #1a1208)';
-    border = '#3a2808';
-  } else if (isSelected) {
-    bg = 'linear-gradient(to bottom, #4a3820, #2a2010)';
-    border = '#f5a623';
-    shadow = '0 0 12px rgba(245,166,35,0.5)';
-  } else if (building) {
-    bg = 'linear-gradient(to bottom, #3a2a10, #241808)';
-    border = '#8a6020';
-  } else {
-    bg = 'linear-gradient(to bottom, #2d4a1a, #1e3010)';
-    border = '#4a7a20';
-  }
-
-  return (
-    <button
-      onClick={onSelect}
-      className="aspect-square rounded-xl flex flex-col items-center justify-center border-2 transition-all active:scale-95"
-      style={{
-        background: bg,
-        borderColor: border,
-        boxShadow: shadow || 'inset 0 1px 0 rgba(255,255,255,0.06)',
-        opacity: !plot.unlocked ? 0.65 : 1,
-      }}
-    >
-      {!plot.unlocked ? (
-        <>
-          <span className="text-xl">🔒</span>
-          <span className="text-[9px] text-gray-500 mt-0.5">Locked</span>
-        </>
-      ) : building && def ? (
-        <>
-          <span className="text-2xl">{def.emoji}</span>
-          <span
-            className="text-[9px] font-bold mt-0.5"
-            style={{ color: '#f5a623' }}
-          >
-            Lv{building.level}
-          </span>
-        </>
-      ) : (
-        <>
-          <span className="text-xl text-green-600">+</span>
-          <span className="text-[9px] text-green-700">Build</span>
-        </>
-      )}
-    </button>
-  );
-}
-
-function BuildingPanel({ building, gold, gems, onUpgrade }: {
+function BuildingPanel({
+  building, gold, gems, onUpgrade, onClose,
+}: {
   building: PlacedBuilding;
   gold: number;
   gems: number;
   onUpgrade: () => void;
+  onClose: () => void;
 }) {
   const def = BUILDING_DEFS[building.type];
   const upgCost = {
@@ -218,33 +536,40 @@ function BuildingPanel({ building, gold, gems, onUpgrade }: {
   const canUpgrade = gold >= upgCost.gold && gems >= upgCost.gems;
 
   return (
-    <>
+    <div className="panel-coc p-4">
       <div className="flex items-center gap-3 mb-2">
         <span className="text-3xl">{def.emoji}</span>
-        <div>
+        <div className="flex-1">
           <h3 className="font-bold text-white">{def.name}</h3>
           <span className="text-xs font-bold" style={{ color: '#f5a623' }}>Level {building.level}</span>
         </div>
+        <button onClick={onClose} className="text-xs text-gray-500 px-2">✕</button>
       </div>
-      <p className="text-xs text-gray-400 mb-3">{def.description}</p>
+
+      <p className="text-xs text-gray-400 mb-2">{def.description}</p>
+
       <div
         className="rounded-lg p-2 mb-3 text-xs text-gray-300"
         style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid #4a3810' }}
       >
-        <span className="font-semibold" style={{ color: '#f5a623' }}>Effect: </span>{def.effect}
+        <span className="font-semibold" style={{ color: '#f5a623' }}>Active Effect: </span>
+        {def.effect}
       </div>
-      <div className="flex gap-2 mb-3">
+
+      <div className="flex gap-3 items-center mb-3">
+        <span className="text-xs text-gray-400">Upgrade cost:</span>
         <CostBadge emoji="🪙" val={upgCost.gold} have={gold} />
         {upgCost.gems > 0 && <CostBadge emoji="💎" val={upgCost.gems} have={gems} />}
       </div>
+
       <button
         disabled={!canUpgrade}
         onClick={onUpgrade}
-        className={`btn-coc w-full py-2.5 text-sm ${!canUpgrade ? '' : ''}`}
+        className={`btn-coc w-full py-2.5 text-sm ${!canUpgrade ? 'opacity-50' : ''}`}
       >
         ⬆️ Upgrade to Level {building.level + 1}
       </button>
-    </>
+    </div>
   );
 }
 
@@ -253,22 +578,5 @@ function CostBadge({ emoji, val, have }: { emoji: string; val: number; have: num
     <span className={`text-[10px] font-semibold flex items-center gap-0.5 ${have >= val ? 'text-gray-300' : 'text-red-400'}`}>
       {emoji} {val.toLocaleString()}
     </span>
-  );
-}
-
-function StatCard({ label, value, emoji }: { label: string; value: string; emoji: string }) {
-  return (
-    <div
-      className="rounded-xl p-3 text-center"
-      style={{
-        background: 'linear-gradient(to bottom, #2a1e0c, #1a1208)',
-        border: '2px solid #6b4f1a',
-        boxShadow: 'inset 0 1px 0 rgba(200,150,60,0.12)',
-      }}
-    >
-      <div className="text-xl mb-0.5">{emoji}</div>
-      <div className="text-lg font-bold" style={{ color: '#ffd166' }}>{value}</div>
-      <div className="text-[10px] text-gray-400">{label}</div>
-    </div>
   );
 }
