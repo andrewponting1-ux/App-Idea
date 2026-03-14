@@ -64,16 +64,8 @@ export interface PlacedBuilding {
   id: string;
   type: BuildingType;
   level: number;
-  plotId: string;
-}
-
-export interface BasePlot {
-  id: string;
-  col: number;
-  row: number;
-  buildingId?: string;
-  unlocked: boolean;
-  unlockCost: { gold: number; gems: number };
+  x: number;   // percentage 0–100 within terrain canvas
+  y: number;   // percentage 0–100 within terrain canvas
 }
 
 export interface BreedingTask {

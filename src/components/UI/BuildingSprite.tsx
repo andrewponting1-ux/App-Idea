@@ -90,6 +90,16 @@ const NestSVG = (
     <line x1="66.5" y1="43" x2="66.5" y2="53" stroke="#7a9aaa" strokeWidth="0.8" />
     <line x1="61" y1="48" x2="72" y2="48" stroke="#7a9aaa" strokeWidth="0.8" />
 
+    {/* Egg on roof peak */}
+    <ellipse cx="50" cy="19" rx="8" ry="10" fill="#fffde7" />
+    <ellipse cx="50" cy="19" rx="7" ry="9" fill="#fff9c4" opacity="0.6" />
+    {/* Egg speckles */}
+    <circle cx="47" cy="16" r="1" fill="#c8b400" opacity="0.6" />
+    <circle cx="53" cy="18" r="0.8" fill="#c8b400" opacity="0.6" />
+    <circle cx="49" cy="22" r="0.9" fill="#c8b400" opacity="0.5" />
+    {/* Crack on egg */}
+    <path d="M50,13 L47,18 L50,21 L53,18 Z" fill="none" stroke="#c8a000" strokeWidth="0.8" />
+
     {/* Heart emblem above door */}
     <path
       d="M47,53 C47,51 44,50 44,52.5 C44,54.5 47,57 47,57 C47,57 50,54.5 50,52.5 C50,50 47,51 47,53Z"
@@ -214,6 +224,13 @@ const ArenaSVG = (
       style={{ animation: 'bldg-flame 0.75s ease-in-out 0.4s infinite' }} />
     <ellipse cx="79" cy="23" rx="1.5" ry="3" fill="#FFF9C4"
       style={{ animation: 'bldg-flame 0.75s ease-in-out 0.5s infinite' }} />
+
+    {/* Pokeball emblem on platform front */}
+    <path d="M38,76 A12,12 0 0,1 62,76" fill="#CC2222" />
+    <path d="M38,76 A12,12 0 0,0 62,76" fill="white" />
+    <line x1="38" y1="76" x2="62" y2="76" stroke="#333" strokeWidth="1.5" />
+    <circle cx="50" cy="76" r="4.5" fill="white" stroke="#333" strokeWidth="1.5" />
+    <circle cx="50" cy="76" r="2.5" fill="#444" />
 
     {/* Shield emblem on platform */}
     <polygon points="50,44 62,50 58,66 50,70 42,66 38,50"
@@ -420,27 +437,37 @@ const LabSVG = (
     <ellipse cx="49" cy="70" rx="6" ry="5" fill="rgba(140,60,200,0.5)"
       style={{ animation: 'bldg-magic 2.5s ease-in-out 1.4s infinite' }} />
 
-    {/* Magic orb staff / pedestal */}
-    <rect x="46" y="12" width="5" height="6" rx="1" fill="#9a8a6a" />
+    {/* Crystal cluster pedestal */}
+    <rect x="46" y="12" width="6" height="6" rx="1" fill="#9a8a6a" />
 
-    {/* Magic orb (above battlements) */}
+    {/* Crystal cluster (above battlements) */}
     <g style={{ animation: 'bldg-magic 1.8s ease-in-out infinite' }}>
-      <circle cx="49" cy="6" r="11" fill="rgba(100,130,255,0.25)" />
-      <circle cx="49" cy="6" r="8" fill="#6A1B9A" />
-      <circle cx="49" cy="6" r="6" fill="#8E24AA" />
-      <circle cx="49" cy="6" r="4" fill="#AB47BC" />
-      {/* Orb highlight */}
-      <circle cx="46" cy="3.5" r="2" fill="rgba(255,255,255,0.45)" />
+      {/* Ambient glow */}
+      <circle cx="49" cy="5" r="13" fill="rgba(100,130,255,0.18)" />
+      {/* Centre crystal */}
+      <polygon points="44,14 49,1 54,14" fill="#AB47BC" />
+      <polygon points="44,14 49,1 41,7"  fill="#9C27B0" />
+      <polygon points="54,14 49,1 57,7"  fill="#BA68C8" />
+      {/* Left crystal */}
+      <polygon points="39,15 44,3 47,15" fill="#7E57C2" />
+      <polygon points="39,15 44,3 37,9"  fill="#673AB7" />
+      {/* Right crystal */}
+      <polygon points="59,15 56,3 53,15" fill="#CE93D8" />
+      <polygon points="59,15 56,3 61,9"  fill="#BA68C8" />
+      {/* Crystal tip highlights */}
+      <circle cx="49" cy="2"  r="1.2" fill="rgba(255,255,255,0.6)" />
+      <circle cx="44" cy="4"  r="0.9" fill="rgba(255,255,255,0.5)" />
+      <circle cx="56" cy="4"  r="0.9" fill="rgba(255,255,255,0.5)" />
     </g>
 
-    {/* Floating sparkles around orb */}
-    <circle cx="40" cy="4" r="1.8" fill="#CE93D8" opacity="0.8"
+    {/* Floating sparkles around cluster */}
+    <circle cx="38" cy="5" r="1.8" fill="#CE93D8" opacity="0.8"
       style={{ animation: 'bldg-magic 1.8s ease-in-out 0.3s infinite' }} />
-    <circle cx="58" cy="5" r="1.5" fill="#90CAF9" opacity="0.8"
+    <circle cx="60" cy="6" r="1.5" fill="#90CAF9" opacity="0.8"
       style={{ animation: 'bldg-magic 1.8s ease-in-out 0.9s infinite' }} />
-    <circle cx="55" cy="0" r="1.2" fill="#E1BEE7" opacity="0.7"
+    <circle cx="57" cy="-1" r="1.2" fill="#E1BEE7" opacity="0.7"
       style={{ animation: 'bldg-magic 1.8s ease-in-out 0.6s infinite' }} />
-    <circle cx="43" cy="0" r="1.2" fill="#B3E5FC" opacity="0.7"
+    <circle cx="41" cy="-1" r="1.2" fill="#B3E5FC" opacity="0.7"
       style={{ animation: 'bldg-magic 1.8s ease-in-out 1.2s infinite' }} />
   </>
 );

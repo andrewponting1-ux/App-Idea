@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import {
-  Pet, BasePlot, PlacedBuilding, BreedingTask, BattleState,
+  Pet, PlacedBuilding, BreedingTask, BattleState,
   ActiveView, BuildingType, BattleEnemy, EvolutionStage, EvolutionVariant,
 } from '../types';
 import { PET_SPECIES, SPECIES_MAP, getTypeAdvantage, getStageForLevel } from '../data/petSpecies';
@@ -47,41 +47,6 @@ function createPet(speciesId: string, level = 1): Pet {
   };
 }
 
-function createInitialPlots(): BasePlot[] {
-  const plots: BasePlot[] = [];
-  let plotId = 0;
-  for (let row = 0; row < 3; row++) {
-    for (let col = 0; col < 4; col++) {
-      const isUnlocked = row < 2 && col < 2;
-      const unlockGold = (row + col + 1) * 500;
-      plots.push({
-        id: `plot_${plotId++}`,
-        col,
-        row,
-        unlocked: isUnlocked,
-        unlockCost: { gold: unlockGold, gems: 0 },
-      });
-    }
-  }
-  return plots;
-}
-
-function createInitialBuildings(plots: BasePlot[]): { buildings: PlacedBuilding[]; plots: BasePlot[] } {
-  const buildings: PlacedBuilding[] = [];
-  const updatedPlots = [...plots];
-
-  const nestPlot = updatedPlots.find(p => p.col === 0 && p.row === 0)!;
-  const nestBuilding: PlacedBuilding = { id: newBuildingId(), type: 'nest', level: 1, plotId: nestPlot.id };
-  buildings.push(nestBuilding);
-  updatedPlots[updatedPlots.indexOf(nestPlot)] = { ...nestPlot, buildingId: nestBuilding.id };
-
-  const gardenPlot = updatedPlots.find(p => p.col === 1 && p.row === 0)!;
-  const gardenBuilding: PlacedBuilding = { id: newBuildingId(), type: 'garden', level: 1, plotId: gardenPlot.id };
-  buildings.push(gardenBuilding);
-  updatedPlots[updatedPlots.indexOf(gardenPlot)] = { ...gardenPlot, buildingId: gardenBuilding.id };
-
-  return { buildings, plots: updatedPlots };
-}
 
 function generateEnemyTeam(round: number): BattleEnemy[] {
   const species = PET_SPECIES.filter(s => s.rarity !== 'legendary');
@@ -134,7 +99,6 @@ interface GameStore {
   discoveredSpecies: string[];
 
   // Base
-  plots: BasePlot[];
   buildings: PlacedBuilding[];
 
   // Team
@@ -171,8 +135,8 @@ interface GameStore {
   renamePet: (petId: string, name: string) => void;
   addToTeam: (petId: string) => void;
   removeFromTeam: (petId: string) => void;
-  unlockPlot: (plotId: string) => void;
-  buildOnPlot: (plotId: string, type: BuildingType) => void;
+  placeBuilding: (type: BuildingType, x: number, y: number) => void;
+  moveBuilding: (buildingId: string, x: number, y: number) => void;
   upgradeBuilding: (buildingId: string) => void;
   startBreeding: (pet1Id: string, pet2Id: string) => void;
   collectBreeding: (taskId: string) => void;
@@ -192,7 +156,7 @@ interface GameStore {
 
 const STARTER_SPECIES = ['aquapup', 'firefoxen', 'leafbear'];
 
-const { buildings: initBuildings, plots: initPlots } = createInitialBuildings(createInitialPlots());
+const initBuildings: PlacedBuilding[] = [];
 
 const starterPet = createPet(STARTER_SPECIES[Math.floor(Math.random() * STARTER_SPECIES.length)], 1);
 
@@ -205,7 +169,6 @@ export const useGameStore = create<GameStore>()(
       speedups: 0,
       pets: [starterPet],
       discoveredSpecies: [starterPet.speciesId],
-      plots: initPlots,
       buildings: initBuildings,
       activeTeam: [starterPet.id],
       breedingTasks: [],
@@ -408,39 +371,26 @@ export const useGameStore = create<GameStore>()(
         }));
       },
 
-      unlockPlot(plotId) {
-        const { plots, gold, gems } = get();
-        const plot = plots.find(p => p.id === plotId);
-        if (!plot || plot.unlocked) return;
-        if (gold < plot.unlockCost.gold || gems < plot.unlockCost.gems) {
-          get().addNotification('Not enough resources to unlock this plot!', 'warning');
-          return;
-        }
-        set(s => ({
-          gold: s.gold - plot.unlockCost.gold,
-          gems: s.gems - plot.unlockCost.gems,
-          plots: s.plots.map(p => p.id === plotId ? { ...p, unlocked: true } : p),
-        }));
-        get().addNotification('New plot unlocked! 🏗️', 'success');
-      },
-
-      buildOnPlot(plotId, type) {
-        const { plots, gold, gems, buildings } = get();
-        const plot = plots.find(p => p.id === plotId);
-        if (!plot || !plot.unlocked || plot.buildingId) return;
+      placeBuilding(type, x, y) {
+        const { gold, gems } = get();
         const def = BUILDING_DEFS[type];
         if (gold < def.baseCost.gold || gems < def.baseCost.gems) {
           get().addNotification('Not enough resources!', 'warning');
           return;
         }
-        const newBuilding: PlacedBuilding = { id: newBuildingId(), type, level: 1, plotId };
+        const newBuilding: PlacedBuilding = { id: newBuildingId(), type, level: 1, x, y };
         set(s => ({
           gold: s.gold - def.baseCost.gold,
           gems: s.gems - def.baseCost.gems,
           buildings: [...s.buildings, newBuilding],
-          plots: s.plots.map(p => p.id === plotId ? { ...p, buildingId: newBuilding.id } : p),
         }));
         get().addNotification(`${def.name} built! ${def.emoji}`, 'success');
+      },
+
+      moveBuilding(buildingId, x, y) {
+        set(s => ({
+          buildings: s.buildings.map(b => b.id === buildingId ? { ...b, x, y } : b),
+        }));
       },
 
       upgradeBuilding(buildingId) {
@@ -766,7 +716,7 @@ export const useGameStore = create<GameStore>()(
       partialize: (s) => ({
         gold: s.gold, gems: s.gems, food: s.food, speedups: s.speedups,
         pets: s.pets, discoveredSpecies: s.discoveredSpecies,
-        plots: s.plots, buildings: s.buildings,
+        buildings: s.buildings,
         activeTeam: s.activeTeam, breedingTasks: s.breedingTasks,
         battlesWon: s.battlesWon, ownedSkins: s.ownedSkins,
         lastTick: s.lastTick, lastGardenTick: s.lastGardenTick, lastGemTick: s.lastGemTick,
