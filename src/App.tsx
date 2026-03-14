@@ -38,14 +38,17 @@ export default function App() {
     <div className="flex flex-col h-full max-w-sm mx-auto bg-game-bg">
       <ResourceBar />
       <Notifications />
-      <main className="flex-1 overflow-hidden flex flex-col">
-        {activeView === 'base' && <BaseView />}
-        {activeView === 'collection' && <CollectionView />}
-        {activeView === 'battle' && <BattleView />}
-        {activeView === 'breeding' && <BreedingView />}
-        {activeView === 'shop' && <ShopView />}
-      </main>
-      <NavBar />
+      {/* relative wrapper gives NavBar its absolute positioning context */}
+      <div className="flex-1 relative overflow-hidden">
+        <main className="h-full overflow-hidden flex flex-col">
+          {activeView === 'base' && <BaseView />}
+          {activeView === 'collection' && <CollectionView />}
+          {activeView === 'battle' && <BattleView />}
+          {activeView === 'breeding' && <BreedingView />}
+          {activeView === 'shop' && <ShopView />}
+        </main>
+        <NavBar />
+      </div>
     </div>
   );
 }

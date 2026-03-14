@@ -158,28 +158,70 @@ export default function BaseView() {
         className="relative w-full overflow-hidden select-none"
         style={{
           height: mapH,
-          background: 'linear-gradient(to bottom, #1a2a4a 0%, #2a4510 45%, #1a3008 100%)',
+          /* Sky → horizon → bright grass → mid earth → dark ground */
+          background: 'linear-gradient(to bottom, #0b1630 0%, #122060 9%, #1e4898 17%, #1e6830 20%, #2a8020 24%, #1e5c14 42%, #144010 62%, #0c2808 85%, #071604 100%)',
         }}
       >
-        {/* ── Ground tiles ──────────────────────────── */}
-        {plots.map(p => {
-          const bldg      = buildingForPlot(p);
-          const isSelected = selectedPlotId === p.id || (bldg && selectedBuildingId === bldg.id);
-          const left  = p.col * metrics.w;
-          const top   = p.row * metrics.h;
+        {/* Horizon glow line */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            left: 0, right: 0,
+            top: '20%',
+            height: 2,
+            background: 'linear-gradient(to right, transparent 0%, rgba(120,220,60,0.5) 20%, rgba(160,240,80,0.65) 50%, rgba(120,220,60,0.5) 80%, transparent 100%)',
+            zIndex: 0,
+          }}
+        />
 
-          let tileBg: string;
-          let tileBorder: string;
-          if (!p.unlocked) {
-            tileBg     = 'linear-gradient(to bottom, #1a1208, #100d05)';
-            tileBorder = '#2a1808';
-          } else if (bldg) {
-            tileBg     = 'linear-gradient(to bottom, #3a5a18, #284010)';
-            tileBorder = isSelected ? '#f5a623' : '#4a7a20';
-          } else {
-            tileBg     = 'linear-gradient(to bottom, #4a7a22, #2a5010)';
-            tileBorder = isSelected ? '#f5a623' : '#5a9a28';
-          }
+        {/* Decorative environment — trees on left edge */}
+        {([
+          { left: '-2%', top: '18%',  size: 30, e: '🌲' },
+          { left:  '0%', top: '38%',  size: 24, e: '🌳' },
+          { left: '-1%', top: '58%',  size: 26, e: '🌲' },
+          { left:  '1%', top: '74%',  size: 18, e: '🌿' },
+        ] as const).map((d, i) => (
+          <span key={`tl${i}`} style={{
+            position: 'absolute', left: d.left, top: d.top,
+            fontSize: d.size, zIndex: 6, opacity: 0.82,
+            pointerEvents: 'none',
+            filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.55))',
+          }}>{d.e}</span>
+        ))}
+
+        {/* Decorative environment — trees on right edge */}
+        {([
+          { right: '-2%', top: '21%', size: 28, e: '🌲' },
+          { right:  '0%', top: '41%', size: 22, e: '🌳' },
+          { right: '-1%', top: '60%', size: 26, e: '🌲' },
+          { right:  '1%', top: '76%', size: 18, e: '🌿' },
+        ] as const).map((d, i) => (
+          <span key={`tr${i}`} style={{
+            position: 'absolute', right: d.right, top: d.top,
+            fontSize: d.size, zIndex: 6, opacity: 0.82,
+            pointerEvents: 'none',
+            filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.55))',
+          }}>{d.e}</span>
+        ))}
+
+        {/* Clouds in the sky strip */}
+        {([
+          { left: '15%', top: '3%', size: 16, opacity: 0.45 },
+          { left: '48%', top: '6%', size: 12, opacity: 0.35 },
+          { left: '72%', top: '2%', size: 18, opacity: 0.4  },
+        ] as const).map((d, i) => (
+          <span key={`cl${i}`} style={{
+            position: 'absolute', left: d.left, top: d.top,
+            fontSize: d.size, zIndex: 0, opacity: d.opacity,
+            pointerEvents: 'none',
+          }}>☁️</span>
+        ))}
+        {/* ── Ground tiles — transparent, world shows through ── */}
+        {plots.map(p => {
+          const bldg       = buildingForPlot(p);
+          const isSelected = selectedPlotId === p.id || (bldg && selectedBuildingId === bldg.id);
+          const left = p.col * metrics.w;
+          const top  = p.row * metrics.h;
 
           return (
             <div
@@ -190,27 +232,36 @@ export default function BaseView() {
                 left, top,
                 width: metrics.w,
                 height: metrics.h,
-                background: tileBg,
-                border: `1.5px solid ${tileBorder}`,
-                boxShadow: isSelected ? `inset 0 0 14px rgba(245,166,35,0.35)` : undefined,
-                opacity: !p.unlocked ? 0.6 : 1,
+                background: 'transparent',
+                border: 'none',
                 zIndex: 1,
               }}
             >
-              {/* Subtle grass texture lines */}
-              {p.unlocked && !bldg && (
+              {/* Locked territory: dark fog overlay */}
+              {!p.unlocked && (
                 <div
-                  className="absolute inset-0 opacity-10 pointer-events-none"
+                  className="absolute inset-0 pointer-events-none"
+                  style={{ background: 'rgba(0,0,14,0.74)' }}
+                />
+              )}
+
+              {/* Selected: gold ring */}
+              {isSelected && (
+                <div
+                  className="absolute inset-0 pointer-events-none"
                   style={{
-                    backgroundImage:
-                      'repeating-linear-gradient(90deg, transparent 0px, transparent 9px, rgba(0,0,0,0.15) 9px, rgba(0,0,0,0.15) 10px)',
+                    border: '2px solid #f5a623',
+                    boxShadow: 'inset 0 0 18px rgba(245,166,35,0.38)',
                   }}
                 />
               )}
 
-              {/* Locked: padlock + cost */}
+              {/* Locked: padlock + cost (above fog) */}
               {!p.unlocked && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 pointer-events-none">
+                <div
+                  className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 pointer-events-none"
+                  style={{ zIndex: 2 }}
+                >
                   <span style={{ fontSize: metrics.w * 0.26, lineHeight: 1 }}>🔒</span>
                   <span className="text-[8px] font-bold" style={{ color: '#9a7840' }}>
                     🪙{p.unlockCost.gold}
@@ -218,10 +269,21 @@ export default function BaseView() {
                 </div>
               )}
 
-              {/* Empty unlocked: faint + icon */}
+              {/* Empty unlocked: subtle grass flicker hint */}
+              {p.unlocked && !bldg && (
+                <div
+                  className="absolute inset-0 opacity-10 pointer-events-none"
+                  style={{
+                    backgroundImage:
+                      'repeating-linear-gradient(135deg, transparent 0px, transparent 7px, rgba(255,255,255,0.06) 7px, rgba(255,255,255,0.06) 8px)',
+                  }}
+                />
+              )}
+
+              {/* Empty tap indicator */}
               {p.unlocked && !bldg && !isSelected && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25">
-                  <span className="text-green-300 font-bold text-2xl">+</span>
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
+                  <span className="text-green-200 font-bold text-2xl">+</span>
                 </div>
               )}
               {p.unlocked && !bldg && isSelected && (
